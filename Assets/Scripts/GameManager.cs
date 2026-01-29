@@ -8,9 +8,24 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance;
 
     [Header("Game Data")]
-    public List<string> levels = new List<string> { "HELLO", "WORLD", "UNITY", "STACK", "CODE", "GAMER" };
+    // --- UPDATED WORD LIST ---
+    public List<string> wordLibrary = new List<string> {
+        // Basics
+        "DATA", "CODE", "LOOP", "VOID", "NULL", "BYTE", "BOOL", "CHAR", "ENUM", 
+        // Logic
+        "IF", "ELSE", "CASE", "TRUE", "FALSE", "WHILE", "FOR", "BREAK", 
+        // Data Structures
+        "ARRAY", "LIST", "STACK", "QUEUE", "TREE", "GRAPH", "NODE", "MAP", "HEAP",
+        // Unity / Game Dev
+        "UNITY", "SCENE", "GAME", "OBJECT", "PREFAB", "ASSET", "SCRIPT", "DEBUG",
+        "PIXEL", "VECTOR", "RAY", "MESH", "INPUT", "LAYER", "BUILD",
+        // Advanced / Concepts
+        "CLASS", "STATIC", "PUBLIC", "ERROR", "BUG", "FIX", "PATCH", "TOKEN",
+        "SYNTAX", "LOGIC", "MEMORY", "CACHE", "SERVER", "CLIENT", "LOGIN"
+    };
+    // -------------------------
 
-    // The "Tracking List" - we deplete this as we play
+    // The "Tracking List" - we deplete this as we play so we don't repeat words
     private List<string> availableWords = new List<string>();
     private string currentWord;
 
@@ -38,26 +53,27 @@ public class GameManager : MonoBehaviour
         LoadNextLevel();
     }
 
-    private string GetRandomWord()
+    // This function is ready for "Multiple Towers" later!
+    // Every time you call it, it gives you a unique word from the remaining pile.
+    public string GetRandomWord()
     {
-        // 1. If we ran out of words, reset the list from the master 'levels' list
+        // 1. If we ran out of words (or are low), refill the list
         if (availableWords.Count == 0)
         {
-            availableWords = new List<string>(levels);
+            availableWords = new List<string>(wordLibrary);
         }
 
-        // 2. Pick a random INDEX from the remaining words
+        // 2. Pick a random INDEX
         int randomIndex = Random.Range(0, availableWords.Count);
 
-        // 3. Get the word at that index
+        // 3. Get the word
         string selectedWord = availableWords[randomIndex];
 
-        // 4. CRITICAL: Remove it from the list so it doesn't repeat
+        // 4. Remove it so we don't pick "UNITY" twice in the same game session
         availableWords.RemoveAt(randomIndex);
 
         return selectedWord;
     }
-    // ---------------------------------------
 
     public void StartLevel(string word)
     {
@@ -105,18 +121,27 @@ public class GameManager : MonoBehaviour
         // Spawn Loop
         for (int i = 0; i < chars.Length; i++)
         {
-            // Pick a random source tower (Left or Right)
             Tower randomTower = sourceTowers[Random.Range(0, sourceTowers.Count)];
+
+            // Check if randomTower is valid
+            if (randomTower == null) continue;
+
             Vector3 spawnPos = randomTower.GetNextSnapPosition();
 
             GameObject newObj = Instantiate(blockPrefab, spawnPos, randomTower.transform.rotation);
             newObj.transform.SetParent(randomTower.transform);
+
             DraggableBlock blockScript = newObj.GetComponent<DraggableBlock>();
 
-            blockScript.InitializeBlock(chars[i]);
-            blockScript.SetCamera(miniGameCamera);
-            randomTower.AddBlock(blockScript);
-            blockScript.SetCurrentTower(randomTower);
+            // Safety check
+            if (blockScript != null)
+            {
+                blockScript.InitializeBlock(chars[i]);
+                blockScript.SetCamera(miniGameCamera);
+                randomTower.AddBlock(blockScript);
+                blockScript.SetCurrentTower(randomTower);
+            }
+
             activeBlocks.Add(newObj);
         }
     }
