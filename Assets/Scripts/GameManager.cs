@@ -8,37 +8,35 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance;
 
     [Header("Game Data")]
-    // --- UPDATED WORD LIST ---
     public List<string> wordLibrary = new List<string> {
-        // Basics
-        "DATA", "CODE", "LOOP", "VOID", "NULL", "BYTE", "BOOL", "CHAR", "ENUM", 
-        // Logic
-        "IF", "ELSE", "CASE", "TRUE", "FALSE", "WHILE", "FOR", "BREAK", 
-        // Data Structures
+        "DATA", "CODE", "LOOP", "VOID", "NULL", "BYTE", "BOOL", "CHAR", "ENUM",
+        "IF", "ELSE", "CASE", "TRUE", "FALSE", "WHILE", "FOR", "BREAK",
         "ARRAY", "LIST", "STACK", "QUEUE", "TREE", "GRAPH", "NODE", "MAP", "HEAP",
-        // Unity / Game Dev
         "UNITY", "SCENE", "GAME", "OBJECT", "PREFAB", "ASSET", "SCRIPT", "DEBUG",
         "PIXEL", "VECTOR", "RAY", "MESH", "INPUT", "LAYER", "BUILD",
-        // Advanced / Concepts
         "CLASS", "STATIC", "PUBLIC", "ERROR", "BUG", "FIX", "PATCH", "TOKEN",
         "SYNTAX", "LOGIC", "MEMORY", "CACHE", "SERVER", "CLIENT", "LOGIN"
     };
-    // -------------------------
 
-    // The "Tracking List" - we deplete this as we play so we don't repeat words
     private List<string> availableWords = new List<string>();
-    private string currentWord;
+    private List<string> activeTargetWords = new List<string>();
+    private List<int> activeTowerIndices = new List<int>();
+    private int currentDifficulty = 1;
 
     [Header("References")]
     public GameObject blockPrefab;
-    public Tower goalTower;
-    public List<Tower> sourceTowers;
     public Camera miniGameCamera;
 
-    [Header("UI")]
-    public TMP_Text targetText;
-    public TMP_Text currentWordText;
+    [Header("Towers")]
+    public List<Tower> sourceTowers;
+    public List<Tower> goalTowerSlots;
+
+    [Header("UI References")]
+    public GameObject difficultyPanel;
     public GameObject winPanel;
+    public List<TMP_Text> targetTextSlots;
+
+    // --- REMOVED: currentWordText (We don't need it anymore!) ---
 
     private List<GameObject> activeBlocks = new List<GameObject>();
 
@@ -47,69 +45,74 @@ public class GameManager : MonoBehaviour
         Instance = this;
     }
 
-    void Start()
+    void OnEnable()
     {
-        // Start the first level immediately
-        LoadNextLevel();
+        ShowDifficultyMenu();
     }
 
-    // This function is ready for "Multiple Towers" later!
-    // Every time you call it, it gives you a unique word from the remaining pile.
+    public void ShowDifficultyMenu()
+    {
+        winPanel.SetActive(false);
+        CleanupLevel();
+
+        foreach (var t in goalTowerSlots) t.gameObject.SetActive(false);
+        foreach (var txt in targetTextSlots) txt.gameObject.SetActive(false);
+
+        difficultyPanel.SetActive(true);
+    }
+
+    public void SelectDifficulty(int numberOfWords)
+    {
+        currentDifficulty = numberOfWords;
+        difficultyPanel.SetActive(false);
+        StartLevel(currentDifficulty);
+    }
+
     public string GetRandomWord()
     {
-        // 1. If we ran out of words (or are low), refill the list
-        if (availableWords.Count == 0)
-        {
-            availableWords = new List<string>(wordLibrary);
-        }
-
-        // 2. Pick a random INDEX
+        if (availableWords.Count == 0) availableWords = new List<string>(wordLibrary);
         int randomIndex = Random.Range(0, availableWords.Count);
-
-        // 3. Get the word
         string selectedWord = availableWords[randomIndex];
-
-        // 4. Remove it so we don't pick "UNITY" twice in the same game session
         availableWords.RemoveAt(randomIndex);
-
         return selectedWord;
     }
 
-    public void StartLevel(string word)
+    public void StartLevel(int difficulty)
     {
-        currentWord = word;
-        winPanel.SetActive(false);
-        targetText.text = "Target: " + currentWord;
+        activeTargetWords.Clear();
+        activeTowerIndices.Clear();
+        CleanupLevel();
 
-        // Cleanup old blocks
-        foreach (GameObject b in activeBlocks)
+        if (difficulty == 1) activeTowerIndices.Add(1);
+        else if (difficulty == 2) { activeTowerIndices.Add(0); activeTowerIndices.Add(2); }
+        else if (difficulty == 3) { activeTowerIndices.Add(0); activeTowerIndices.Add(1); activeTowerIndices.Add(2); }
+
+        foreach (int index in activeTowerIndices)
         {
-            if (b != null) Destroy(b);
+            goalTowerSlots[index].gameObject.SetActive(true);
+            targetTextSlots[index].gameObject.SetActive(true);
+
+            string newWord = GetRandomWord();
+            activeTargetWords.Add(newWord);
+
+            targetTextSlots[index].text = "Target: " + newWord;
+
+            SpawnBlocks(newWord);
         }
-        activeBlocks.Clear();
-
-        // Cleanup Towers
-        goalTower.blocks.Clear();
-        foreach (var t in sourceTowers) t.blocks.Clear();
-
-        // Spawn
-        SpawnBlocks(currentWord);
-
-        // UI Reset
-        UpdateUI();
     }
 
-    public void LoadNextLevel()
+    void CleanupLevel()
     {
-        string nextWord = GetRandomWord();
-        StartLevel(nextWord);
+        foreach (GameObject b in activeBlocks) if (b != null) Destroy(b);
+        activeBlocks.Clear();
+        foreach (var t in sourceTowers) t.blocks.Clear();
+        foreach (var t in goalTowerSlots) t.blocks.Clear();
     }
 
     void SpawnBlocks(string word)
     {
         char[] chars = word.ToCharArray();
 
-        // Shuffle Letters
         for (int i = 0; i < chars.Length; i++)
         {
             char temp = chars[i];
@@ -118,56 +121,108 @@ public class GameManager : MonoBehaviour
             chars[randomIndex] = temp;
         }
 
-        // Spawn Loop
+        int startIndex = Random.Range(0, sourceTowers.Count);
+
         for (int i = 0; i < chars.Length; i++)
         {
-            Tower randomTower = sourceTowers[Random.Range(0, sourceTowers.Count)];
+            int towerIndex = (startIndex + i) % sourceTowers.Count;
+            Tower selectedTower = sourceTowers[towerIndex];
 
-            // Check if randomTower is valid
-            if (randomTower == null) continue;
+            if (selectedTower == null) continue;
 
-            Vector3 spawnPos = randomTower.GetNextSnapPosition();
+            Vector3 spawnPos = selectedTower.GetNextSnapPosition();
 
-            GameObject newObj = Instantiate(blockPrefab, spawnPos, randomTower.transform.rotation);
-            newObj.transform.SetParent(randomTower.transform);
+            GameObject newObj = Instantiate(blockPrefab, spawnPos, selectedTower.transform.rotation);
+            newObj.transform.SetParent(selectedTower.transform);
 
             DraggableBlock blockScript = newObj.GetComponent<DraggableBlock>();
-
-            // Safety check
             if (blockScript != null)
             {
                 blockScript.InitializeBlock(chars[i]);
                 blockScript.SetCamera(miniGameCamera);
-                randomTower.AddBlock(blockScript);
-                blockScript.SetCurrentTower(randomTower);
+                selectedTower.AddBlock(blockScript);
+                blockScript.SetCurrentTower(selectedTower);
             }
-
             activeBlocks.Add(newObj);
         }
     }
 
-    public void UpdateUI()
-    {
-        StringBuilder builtWord = new StringBuilder();
-        foreach (var block in goalTower.blocks)
-        {
-            builtWord.Append(block.letter);
-        }
-        currentWordText.text = "Built: " + builtWord.ToString();
-    }
 
     public void CheckForWin()
     {
-        UpdateUI();
+        int solvedCount = 0;
 
-        if (goalTower.blocks.Count != currentWord.Length) return;
+        for (int i = 0; i < activeTargetWords.Count; i++)
+        {
+            int realTowerIndex = activeTowerIndices[i];
+            Tower t = goalTowerSlots[realTowerIndex];
+            string targetWord = activeTargetWords[i];
 
-        StringBuilder builtWord = new StringBuilder();
-        foreach (var block in goalTower.blocks) builtWord.Append(block.letter);
+            StringBuilder visualText = new StringBuilder("Target: ");
+            int correctCharCount = 0;
 
-        if (builtWord.ToString() == currentWord)
+            // --- NEW: The Chain Flag ---
+            // If this becomes true, NO future letters can be green.
+            bool chainBroken = false;
+            // ---------------------------
+
+            for (int j = 0; j < targetWord.Length; j++)
+            {
+                char requiredChar = targetWord[j];
+                bool isCorrectChar = false;
+
+                // 1. Is the block at this position actually the right letter?
+                if (j < t.blocks.Count)
+                {
+                    if (t.blocks[j].letter == requiredChar)
+                    {
+                        isCorrectChar = true;
+                    }
+                }
+
+                // 2. COLOR LOGIC: Green ONLY if correct AND the chain is unbroken
+                if (isCorrectChar && !chainBroken)
+                {
+                    visualText.Append("<color=green>" + requiredChar + "</color>");
+                    correctCharCount++;
+                }
+                else
+                {
+                    // It's white because it's either wrong OR the chain broke earlier
+                    visualText.Append(requiredChar);
+
+                    // If THIS specific block was the wrong one, break the chain now!
+                    if (!isCorrectChar)
+                    {
+                        chainBroken = true;
+                    }
+                }
+            }
+
+            targetTextSlots[realTowerIndex].text = visualText.ToString();
+
+            // Win if every letter was green (part of the unbroken chain) 
+            // AND there are no extra junk blocks on top
+            if (correctCharCount == targetWord.Length && t.blocks.Count == targetWord.Length)
+            {
+                solvedCount++;
+            }
+        }
+
+        if (solvedCount == activeTargetWords.Count)
         {
             winPanel.SetActive(true);
         }
+    }
+
+    public void RestartGame()
+    {
+        StartLevel(currentDifficulty);
+        winPanel.SetActive(false);
+    }
+
+    public void BackToMenu()
+    {
+        ShowDifficultyMenu();
     }
 }
