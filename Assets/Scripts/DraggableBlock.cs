@@ -1,127 +1,130 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
-using TMPro;
+using TMPro; // Required for TextMeshPro
 
 public class DraggableBlock : MonoBehaviour
 {
-    public char letter = 'A';
-    private Vector3 offset;
-    private Plane dragPlane;
-    private bool isDragging = false;
-    private Vector3 startPos;
-    private Camera puzzleCamera;
+    [Header("Block Data")]
+    public char letter;
 
+    [Header("References")]
+    public Camera mainCamera;
+    public TMP_Text textComponent;
+
+    [Header("Settings")]
+    public Vector3 dragRotation = new Vector3(0, 180, 0); // Faces camera while dragging
+
+    // Internal State
+    private Vector3 startPos;
+    private Vector3 originalScale;
+    private bool isDragging = false;
+    private Rigidbody rb;
     private Tower currentTower;
 
-    public void SetCamera(Camera cam)
+    // Lock X-axis (Depth)
+    private float fixedX;
+
+    // MEMORY: Remembers which slot it came from (for Array Mode)
+    private int storedArrayIndex = -1;
+
+    void Awake()
     {
-        puzzleCamera = cam;
-    }
+        rb = GetComponent<Rigidbody>();
 
-    void Start()
-    {
-        startPos = transform.position;
-        TMP_Text textComponent = GetComponentInChildren<TMP_Text>();
+        // Auto-find TextMeshPro component
+        if (textComponent == null) textComponent = GetComponentInChildren<TMP_Text>();
 
-        if (textComponent != null && textComponent.text.Length > 0)
-        {
-            letter = textComponent.text[0];
-            gameObject.name = "Block_" + letter;
-        }
-    }
-
-    void Update()
-    {
-        if (Mouse.current == null) return;
-
-        // Mouse Down
-        if (Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            TryPickUp();
-        }
-
-        // Mouse Up
-        if (Mouse.current.leftButton.wasReleasedThisFrame && isDragging)
-        {
-            DropBlock();
-        }
-
-        // Dragging
-        if (isDragging)
-        {
-            MoveBlock();
-        }
+        originalScale = transform.localScale;
     }
 
     public void InitializeBlock(char c)
     {
         letter = c;
+        if (textComponent != null) textComponent.text = c.ToString();
         gameObject.name = "Block_" + c;
-        TMP_Text textComponent = GetComponentInChildren<TMP_Text>();
-        if (textComponent != null)
-        {
-            textComponent.text = c.ToString();
-        }
+    }
+
+    public void SetCamera(Camera cam)
+    {
+        mainCamera = cam;
+    }
+
+    public void SetCurrentTower(Tower t)
+    {
+        currentTower = t;
+    }
+
+    void Update()
+    {
+        if (Input.GetMouseButtonDown(0)) TryPickUp();
+        if (isDragging) DragBlock();
+        if (Input.GetMouseButtonUp(0) && isDragging) DropBlock();
     }
 
     private void TryPickUp()
     {
-        if (puzzleCamera == null) return;
+        if (mainCamera == null) return;
 
-        Vector2 mousePos = Mouse.current.position.ReadValue();
-        Ray ray = puzzleCamera.ScreenPointToRay(mousePos);
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit))
         {
             if (hit.transform == transform)
             {
+                // --- RESOURCE TRAY CHECKS ---
+                ResourceTray tray = GetComponentInParent<ResourceTray>();
+                if (tray != null)
+                {
+                    // 1. Check if allowed (e.g. Stack/Queue rules)
+                    if (!tray.CanPickUp(this)) return;
+
+                    // 2. Remember our index (Crucial for Array Mode)
+                    storedArrayIndex = tray.GetBlockIndex(this);
+
+                    // 3. Remove from tray logic
+                    tray.RemoveBlock(this);
+                }
+
+                // --- GOAL TOWER CHECKS ---
                 if (currentTower != null)
                 {
-                    if (!currentTower.IsTopBlock(this))
-                    {
-                        return; // Can only pick up top block
-                    }
-
-                    // Remove from the tower
+                    if (!currentTower.IsTopBlock(this)) return;
                     currentTower.RemoveBlock(this);
                     currentTower = null;
-
-                    // --- FIX: Removed the broken "UpdateUI" call here ---
-                    // Instead, we just check win conditions to update colors
-                    if (GameManager.Instance != null)
-                    {
-                        GameManager.Instance.CheckForWin();
-                    }
-                    // ---------------------------------------------------
+                    if (GameManager.Instance != null) GameManager.Instance.CheckForWin();
                 }
 
+                // --- SETUP DRAG ---
                 isDragging = true;
-                dragPlane = new Plane(-puzzleCamera.transform.forward, transform.position);
+                startPos = transform.position;
 
-                float enter;
-                if (dragPlane.Raycast(ray, out enter))
-                {
-                    Vector3 hitPoint = ray.GetPoint(enter);
-                    offset = transform.position - hitPoint;
-                }
+                transform.SetParent(null);
+                transform.localScale = originalScale; // Restore size
+
+                // LOCK X-AXIS: Memorize depth
+                fixedX = transform.position.x;
+
+                // APPLY ROTATION: Face the camera
+                transform.rotation = Quaternion.Euler(dragRotation);
+
+                rb.isKinematic = true;
             }
         }
     }
 
-    private void MoveBlock()
+    private void DragBlock()
     {
-        if (puzzleCamera == null) return;
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-        Vector2 mousePos = Mouse.current.position.ReadValue();
-        Ray ray = puzzleCamera.ScreenPointToRay(mousePos);
+        // INVISIBLE WALL: Faces Right/Left at the block's X-depth
+        // If dragging feels inverted, swap Vector3.right for Vector3.left
+        Plane dragWall = new Plane(Vector3.right, new Vector3(fixedX, 0, 0));
 
-        float enter;
-
-        if (dragPlane.Raycast(ray, out enter))
+        float enterDist;
+        if (dragWall.Raycast(ray, out enterDist))
         {
-            Vector3 hitPoint = ray.GetPoint(enter);
-            transform.position = hitPoint + offset;
+            Vector3 hitPoint = ray.GetPoint(enterDist);
+            transform.position = hitPoint;
         }
     }
 
@@ -130,61 +133,104 @@ public class DraggableBlock : MonoBehaviour
         isDragging = false;
 
         Tower nearestTower = FindClosestTower();
-        float flatDistance = 100f;
+        ResourceTray tray = FindFirstObjectByType<ResourceTray>();
 
-        if (nearestTower != null)
+        // 1. Check if we dropped it inside the Tray's "Drop Zone" Collider
+        bool droppedOnTray = false;
+        if (tray != null)
         {
-            Vector3 flatTowerPos = new Vector3(nearestTower.transform.position.x, 0, nearestTower.transform.position.z);
-            Vector3 flatBlockPos = new Vector3(transform.position.x, 0, transform.position.z);
-            flatDistance = Vector3.Distance(flatTowerPos, flatBlockPos);
-        }
-
-        if (nearestTower != null && flatDistance < 2.0f)
-        {
-            // Snap to tower
-            Vector3 newPos = nearestTower.GetNextSnapPosition();
-            transform.position = newPos;
-
-            nearestTower.AddBlock(this);
-            currentTower = nearestTower;
-
-            // Check for Win (This works because GameManager has this function!)
-            if (GameManager.Instance != null)
+            Collider trayCollider = tray.GetComponent<Collider>();
+            if (trayCollider != null)
             {
-                GameManager.Instance.CheckForWin();
+                Vector3 closest = trayCollider.ClosestPoint(transform.position);
+                // If we are within 1 unit of the collider box, count it
+                if (Vector3.Distance(transform.position, closest) < 1.0f) droppedOnTray = true;
+            }
+            else
+            {
+                // Fallback (Distance check) if you forgot the Collider
+                float d = Vector3.Distance(transform.position, tray.transform.position);
+                if (d < 6.0f) droppedOnTray = true;
             }
         }
+
+        // Calculate distance to nearest Goal Tower
+        float distanceToTower = 100f;
+        if (nearestTower != null)
+        {
+            distanceToTower = Vector3.Distance(transform.position, nearestTower.transform.position);
+        }
+
+        // --- OPTION A: Drop on Goal Tower ---
+        // Conditions: 
+        // 1. Tower exists
+        // 2. We are close enough (Radius 1.25f)
+        // 3. Tower has space (Word Length + 1 rule)
+        if (nearestTower != null && distanceToTower < 1.25f && nearestTower.HasSpace())
+        {
+            Vector3 newPos = nearestTower.GetNextSnapPosition();
+            transform.position = newPos;
+            nearestTower.AddBlock(this);
+            SetCurrentTower(nearestTower);
+            if (GameManager.Instance != null) GameManager.Instance.CheckForWin();
+        }
+
+        // --- OPTION B: Return to Tray ---
+        else if (droppedOnTray)
+        {
+            // IF we have a stored index, try the specific "Place In Array" logic.
+            // (The Tray script safely ignores this if we are in Stack/Queue mode)
+            if (storedArrayIndex != -1)
+            {
+                tray.TryPlaceBlockInArray(this, transform.position, storedArrayIndex);
+            }
+            else
+            {
+                tray.ReturnBlockToTray(this);
+            }
+
+            SetCurrentTower(null);
+            storedArrayIndex = -1; // Reset memory
+        }
+
+        // --- OPTION C: Reset (Missed everything) ---
         else
         {
-            // Return to start
-            transform.position = startPos;
+            if (tray != null)
+            {
+                // If we drifted off into space, put it back in the old slot
+                if (storedArrayIndex != -1)
+                    tray.TryPlaceBlockInArray(this, startPos, storedArrayIndex);
+                else
+                    tray.ReturnBlockToTray(this);
+
+                SetCurrentTower(null);
+            }
+            else
+            {
+                transform.position = startPos;
+            }
+            storedArrayIndex = -1;
         }
     }
 
     private Tower FindClosestTower()
     {
-        GameObject[] bases = GameObject.FindGameObjectsWithTag("TowerBase");
         Tower closest = null;
-        float minDist = Mathf.Infinity;
-        Vector3 currentPos = transform.position;
+        float minDst = Mathf.Infinity;
+        Tower[] allTowers = FindObjectsByType<Tower>(FindObjectsSortMode.None);
 
-        foreach (GameObject t in bases)
+        foreach (Tower t in allTowers)
         {
-            Vector3 flatTowerPos = new Vector3(t.transform.position.x, 0, t.transform.position.z);
-            Vector3 flatBlockPos = new Vector3(currentPos.x, 0, currentPos.z);
-            float dist = Vector3.Distance(flatTowerPos, flatBlockPos);
+            if (!t.gameObject.activeInHierarchy) continue;
 
-            if (dist < minDist)
+            float dst = Vector3.Distance(transform.position, t.transform.position);
+            if (dst < minDst)
             {
-                closest = t.GetComponent<Tower>();
-                minDist = dist;
+                minDst = dst;
+                closest = t;
             }
         }
         return closest;
-    }
-
-    public void SetCurrentTower(Tower t)
-    {
-        currentTower = t;
     }
 }

@@ -328,3 +328,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   letter: 65
+  mainCamera: {fileID: 0}
+  textComponent: {fileID: 0}
+  dragRotation: {x: 0, y: 90, z: 0}

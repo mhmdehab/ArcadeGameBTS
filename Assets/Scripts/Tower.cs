@@ -3,49 +3,51 @@ using System.Collections.Generic;
 
 public class Tower : MonoBehaviour
 {
-    // A list to track what blocks are currently on this tower
+    [Header("Configuration")]
+    public Transform snapStartPoint;
+    public float verticalSpacing = 0.2f;
+    // Default to 100 so Helper Towers or unconfigured towers aren't broken
+    public int maxCapacity = 100;
+
+    public Vector3 customBlockRotation = new Vector3(0, 180, 0);
     public List<DraggableBlock> blocks = new List<DraggableBlock>();
 
-    [Header("Stacking Settings")]
-    // CHANGE: Adjust this to match your block's Y scale (e.g., 0.2 or 0.25)
-    public float blockHeight = 0.25f;
+    public bool HasSpace()
+    {
+        return blocks.Count < maxCapacity;
+    }
 
-    // CHANGE: Adjust this to lower the first block (e.g., 0.1) so it sits flat
-    public float startOffset = 0.1f;
-
-    // Helper: Where should the next block go?
     public Vector3 GetNextSnapPosition()
     {
-        // 1. Start with the Tower Base position
-        Vector3 snapPos = transform.position;
+        if (snapStartPoint == null) return transform.position;
 
-        // 2. Calculate the new Y based on your custom settings
-        // Formula: Base Y + StartOffset + (Number of existing blocks * Block Height)
-        snapPos.y = transform.position.y + startOffset + (blocks.Count * blockHeight);
+        Vector3 direction = Vector3.up;
 
-        // 3. Keep the X and Z aligned with the tower base
-        snapPos.x = transform.position.x;
-        snapPos.z = transform.position.z;
+        float startLift = 0.1f;
 
-        return snapPos;
+        float heightOffset = (blocks.Count * verticalSpacing) + startLift;
+
+        return snapStartPoint.position + (direction * heightOffset);
     }
 
     public void AddBlock(DraggableBlock block)
     {
+        // Optional safety check
+        if (!HasSpace()) return;
+
         blocks.Add(block);
+        block.transform.SetParent(transform);
+        block.transform.rotation = Quaternion.Euler(customBlockRotation);
     }
 
     public void RemoveBlock(DraggableBlock block)
     {
-        blocks.Remove(block);
+        if (blocks.Contains(block)) blocks.Remove(block);
     }
 
-    // Check if the specific block is the last one in the list (the Top)
     public bool IsTopBlock(DraggableBlock block)
     {
         if (blocks.Count == 0) return false;
-
-        // Compare the requested block with the last block in the list
         return blocks[blocks.Count - 1] == block;
     }
 }
