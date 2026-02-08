@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using TMPro;
 public class Node : MonoBehaviour
 {
     public int level;
@@ -11,11 +11,23 @@ public class Node : MonoBehaviour
 
     private Node[] allNodes;
 
+    private TextMeshPro nodeText;
+
     private void Start()
     {
         nodeMaterial = GetComponent<Renderer>().material;
 
         allNodes = GetComponentsInParent<Transform>(true)[0].GetComponentsInChildren<Node>();
+        nodeText = GetComponentInChildren<TextMeshPro>();
+        foreach (Transform child in transform) { 
+            TextMeshPro temp= child.GetComponent<TextMeshPro>();
+            if (temp !=null )
+            {
+                nodeText = temp;
+                nodeText.text = "";
+                break;
+            }
+        }
     }
     bool IsLevelUnlocked()
     {
@@ -72,6 +84,15 @@ public class Node : MonoBehaviour
         isFilled = true;
         nodeValue = number;
         nodeMaterial.color = Color.yellow;
+
+        Debug.Log("Filling node with number: " + number + ", nodeText is null? " + (nodeText == null));
+
+        if (nodeText != null)
+        {
+            nodeText.text = number.ToString();
+            Debug.Log("Text updated to: " + nodeText.text);
+        }
+       
     }
 
 
