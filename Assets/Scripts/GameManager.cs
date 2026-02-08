@@ -1,38 +1,42 @@
 using UnityEngine;
 using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
+    [Header("Web API Settings")]
+    public WordAPIService apiService;
+    public bool useOnlineWords = true;
+    public TMP_Text startGameButtonText;
+
     [Header("Game Data")]
     public List<string> wordLibrary = new List<string> {
-        "DATA", "CODE", "LOOP", "VOID", "NULL", "BYTE", "BOOL", "CHAR", "ENUM",
-        "IF", "ELSE", "CASE", "TRUE", "FALSE", "WHILE", "FOR", "BREAK",
-        "ARRAY", "LIST", "STACK", "QUEUE", "TREE", "GRAPH", "NODE", "MAP", "HEAP",
-        "UNITY", "SCENE", "GAME", "OBJECT", "PREFAB", "ASSET", "SCRIPT", "DEBUG",
-        "PIXEL", "VECTOR", "RAY", "MESH", "INPUT", "LAYER", "BUILD",
-        "CLASS", "STATIC", "PUBLIC", "ERROR", "BUG", "FIX", "PATCH", "TOKEN",
-        "SYNTAX", "LOGIC", "MEMORY", "CACHE", "SERVER", "CLIENT", "LOGIN"
+        "DATA", "CODE", "LOOP", "VOID", "NULL", "BYTE", "BOOL", "CHAR",
+        "IF", "ELSE", "CASE", "TRUE", "WHILE", "FOR", "BREAK",
+        "ARRAY", "LIST", "STACK", "QUEUE", "TREE", "GRAPH", "NODE", "HEAP",
+        "UNITY", "GAME", "ASSET", "DEBUG", "PIXEL", "MESH", "INPUT", "BUILD",
+        "CLASS", "ERROR", "BUG", "FIX", "PATCH", "TOKEN", "LOGIC", "LOGIN"
     };
 
+    // State Variables
     private List<string> availableWords = new List<string>();
     private List<string> activeTargetWords = new List<string>();
     private List<int> activeTowerIndices = new List<int>();
-    private int currentDifficulty = 1;
+    private List<GameObject> activeBlocks = new List<GameObject>();
 
-    [Header("Game Mode Settings")]
-    public ResourceType currentResourceMode;
+    // Default settings
+    private int selectedDifficulty = 1;
+    private ResourceType selectedResourceMode = ResourceType.Array;
 
-    [Header("References")]
+    [Header("Scene References")]
     public GameObject blockPrefab;
     public Camera miniGameCamera;
-
-    [Header("References")]
     public GameObject helperTower;
-
     public ResourceTray resourceTray;
     public List<Tower> goalTowerSlots;
 
@@ -40,8 +44,6 @@ public class GameManager : MonoBehaviour
     public GameObject setupMenu;
     public GameObject winPanel;
     public List<TMP_Text> targetTextSlots;
-
-    private List<GameObject> activeBlocks = new List<GameObject>();
 
     void Awake()
     {
@@ -53,11 +55,9 @@ public class GameManager : MonoBehaviour
         ShowDifficultyMenu();
     }
 
-    public void SetResourceMode(ResourceType type)
-    {
-        currentResourceMode = type;
-        Debug.Log("Resource Mode Updated: " + type);
-    }
+    // ---------------------------------------------------------
+    // 1. MENU & SELECTION LOGIC (Fixed for MainMenuController)
+    // ---------------------------------------------------------
 
     public void ShowDifficultyMenu()
     {
@@ -67,67 +67,91 @@ public class GameManager : MonoBehaviour
         foreach (var t in goalTowerSlots) t.gameObject.SetActive(false);
         foreach (var txt in targetTextSlots) txt.gameObject.SetActive(false);
 
-        if (helperTower != null)
-        {
-            helperTower.SetActive(false);
-        }
+        if (helperTower != null) helperTower.SetActive(false);
+        if (startGameButtonText != null) startGameButtonText.text = "START GAME";
 
         setupMenu.SetActive(true);
     }
 
+    // --- FIX #1: Accept ResourceType directly ---
+    public void SetResourceMode(ResourceType type)
+    {
+        selectedResourceMode = type;
+        Debug.Log("Mode Selected: " + selectedResourceMode);
+    }
+
+    // --- FIX #2: Start the game when Difficulty is selected via Start Button ---
     public void SelectDifficulty(int numberOfWords)
     {
-        currentDifficulty = numberOfWords;
-        setupMenu.SetActive(false);
-        StartLevel(currentDifficulty);
+        selectedDifficulty = numberOfWords;
+        Debug.Log("Difficulty Selected: " + selectedDifficulty);
+
+        // Since MainMenuController calls this when "Start" is clicked, 
+        // we trigger the start routine now.
+        StartCoroutine(StartGameRoutine());
     }
 
-    // Now accepts a minimum length filter
-    public string GetRandomWord(int minLength = 0)
+    // ---------------------------------------------------------
+    // 2. LOADING & API LOGIC
+    // ---------------------------------------------------------
+
+    private IEnumerator StartGameRoutine()
     {
-        // Refill if empty
-        if (availableWords.Count == 0) availableWords = new List<string>(wordLibrary);
+        // A. Show Loading UI
+        if (startGameButtonText != null) startGameButtonText.text = "GENERATING...";
 
-        // 1. Find all words that meet the length requirement
-        List<string> candidates = availableWords.FindAll(w => w.Length >= minLength);
+        // B. Determine API Requirements
+        // Difficulty 1: Min 4 letters. Difficulty 2/3: Min 3 letters.
+        int minLen = (selectedDifficulty == 1) ? 4 : 3;
+        int neededCount = (selectedDifficulty == 1) ? 1 : (selectedDifficulty == 2 ? 2 : 3);
 
-        // Safety: If no words match (e.g. library ran out of long words), fallback to anything
-        if (candidates.Count == 0) candidates = availableWords;
+        // Ask for a few extra words just in case
+        if (useOnlineWords && apiService != null)
+        {
+            // Wait for API response...
+            yield return apiService.FetchWords(neededCount + 3, minLen, 6,
+                (words) => {
+                    // Success! Use these words.
+                    availableWords.Clear();
+                    availableWords.AddRange(words);
+                },
+                () => {
+                    // Fail! Log it and continue to fallback.
+                    Debug.Log("API Failed. Using local library.");
+                }
+            );
+        }
 
-        // 2. Pick random from the valid list
-        int randomIndex = Random.Range(0, candidates.Count);
-        string selectedWord = candidates[randomIndex];
+        // C. Start the Level
+        if (startGameButtonText != null) startGameButtonText.text = "START GAME";
+        setupMenu.SetActive(false);
 
-        // 3. Remove it from the main pool so it doesn't repeat
-        availableWords.Remove(selectedWord);
-
-        return selectedWord;
+        StartLevelLogic(selectedDifficulty);
     }
 
-    public void StartLevel(int difficulty)
+    // ---------------------------------------------------------
+    // 3. LEVEL SETUP LOGIC
+    // ---------------------------------------------------------
+
+    private void StartLevelLogic(int difficulty)
     {
         activeTargetWords.Clear();
         activeTowerIndices.Clear();
         CleanupLevel();
 
-        // 1. Configure the Tray
-        resourceTray.ConfigureMode(currentResourceMode);
+        // 1. Configure Tray
+        if (resourceTray != null) resourceTray.ConfigureMode(selectedResourceMode);
 
-        // 2. Toggle Helper Tower Logic
+        // 2. Configure Helper Tower
         if (helperTower != null)
         {
-            // Show only for STACK or QUEUE
-            bool showHelper = (currentResourceMode == ResourceType.Stack || currentResourceMode == ResourceType.Queue);
+            bool showHelper = (selectedResourceMode == ResourceType.Stack || selectedResourceMode == ResourceType.Queue);
             helperTower.SetActive(showHelper);
 
-            // If active, apply the "Hard Mode" capacity limit of 5
             if (showHelper)
             {
                 Tower helperScript = helperTower.GetComponent<Tower>();
-                if (helperScript != null)
-                {
-                    helperScript.maxCapacity = 5;
-                }
+                if (helperScript != null) helperScript.maxCapacity = 5;
             }
         }
 
@@ -136,34 +160,47 @@ public class GameManager : MonoBehaviour
         else if (difficulty == 2) { activeTowerIndices.Add(0); activeTowerIndices.Add(2); }
         else if (difficulty == 3) { activeTowerIndices.Add(0); activeTowerIndices.Add(1); activeTowerIndices.Add(2); }
 
+        // 4. Spawn Words
         foreach (int index in activeTowerIndices)
         {
             goalTowerSlots[index].gameObject.SetActive(true);
             targetTextSlots[index].gameObject.SetActive(true);
 
-            // --- NEW: Word Length Filter ---
-            // Difficulty 1: Minimum 4 letters
-            // Difficulty 2/3: Any length (0)
             int minLength = (difficulty == 1) ? 4 : 0;
             string newWord = GetRandomWord(minLength);
-            // -------------------------------
 
             activeTargetWords.Add(newWord);
-            targetTextSlots[index].text = "Target: " + newWord;
+            targetTextSlots[index].text = newWord;
 
-            // Goal Tower Capacity = Word Length + 1
             goalTowerSlots[index].maxCapacity = newWord.Length + 1;
 
             SpawnBlocks(newWord);
         }
     }
 
+    public string GetRandomWord(int minLength = 0)
+    {
+        if (availableWords.Count == 0) availableWords = new List<string>(wordLibrary);
+
+        List<string> candidates = availableWords.FindAll(w => w.Length >= minLength);
+        if (candidates.Count == 0) candidates = availableWords;
+
+        int randomIndex = Random.Range(0, candidates.Count);
+        string selectedWord = candidates[randomIndex];
+        availableWords.Remove(selectedWord);
+
+        return selectedWord;
+    }
+
+    // ---------------------------------------------------------
+    // 4. GAMEPLAY LOGIC
+    // ---------------------------------------------------------
+
     void CleanupLevel()
     {
         foreach (GameObject b in activeBlocks) if (b != null) Destroy(b);
         activeBlocks.Clear();
 
-        // Clear the new tray
         if (resourceTray != null) resourceTray.ClearTray();
 
         foreach (var t in goalTowerSlots) t.blocks.Clear();
@@ -172,13 +209,9 @@ public class GameManager : MonoBehaviour
     void SpawnBlocks(string word)
     {
         char[] chars = word.ToCharArray();
-
-        // Keep shuffling until the result is NOT the same as the answer.
-        // This prevents "DATA" from accidentally spawning as "DATA".
         int attempts = 0;
         do
         {
-            // Standard Fisher-Yates Shuffle
             for (int i = 0; i < chars.Length; i++)
             {
                 char temp = chars[i];
@@ -188,9 +221,8 @@ public class GameManager : MonoBehaviour
             }
             attempts++;
         }
-        while (new string(chars) == word && attempts < 10); // Safety limit
+        while (new string(chars) == word && attempts < 10);
 
-        // Spawn Logic 
         for (int i = 0; i < chars.Length; i++)
         {
             Vector3 spawnPos = resourceTray.transform.position;
@@ -217,7 +249,8 @@ public class GameManager : MonoBehaviour
             Tower t = goalTowerSlots[realTowerIndex];
             string targetWord = activeTargetWords[i];
 
-            StringBuilder visualText = new StringBuilder("Target: ");
+            StringBuilder visualText = new StringBuilder("");
+
             int correctCharCount = 0;
             bool chainBroken = false;
 
@@ -259,8 +292,9 @@ public class GameManager : MonoBehaviour
 
     public void RestartGame()
     {
-        StartLevel(currentDifficulty);
         winPanel.SetActive(false);
+        // Reuse the start logic with current settings
+        StartCoroutine(StartGameRoutine());
     }
 
     public void BackToMenu()

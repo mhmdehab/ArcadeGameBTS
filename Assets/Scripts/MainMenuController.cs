@@ -65,9 +65,9 @@ public class MainMenuController : MonoBehaviour
     {
         selectedWordCount = count;
 
-        if (count == 1) wordCountDescription.text = "Beginner: Solve 1 word (Middle Tower).";
-        else if (count == 2) wordCountDescription.text = "Intermediate: Solve 2 words (Left & Right).";
-        else if (count == 3) wordCountDescription.text = "Expert: Solve 3 words (All Towers).";
+        if (count == 1) wordCountDescription.text = "Solve one word using the resource tray and one stack.";
+        else if (count == 2) wordCountDescription.text = "Solve two words using the resource tray and two stacks.";
+        else if (count == 3) wordCountDescription.text = "Solve three words using the resource tray and three stacks.";
 
         UpdateButtonVisuals();
         CheckReadyToStart();
@@ -80,13 +80,13 @@ public class MainMenuController : MonoBehaviour
         switch (type)
         {
             case ResourceType.Array:
-                resourceDescription.text = "<b>Array (Easy)</b>\nRandom Access: Pick ANY block you want.";
+                resourceDescription.text = "Array: Indexed access (20 indices). Place or pick any block at any position.";
                 break;
             case ResourceType.Stack:
-                resourceDescription.text = "<b>Stack (Medium)</b>\nLIFO: You can only pick the RIGHTMOST block.";
+                resourceDescription.text = "Stack (LIFO): Only the last placed block can be picked.";
                 break;
             case ResourceType.Queue:
-                resourceDescription.text = "<b>Queue (Hard)</b>\nFIFO: You can only pick the LEFTMOST block.";
+                resourceDescription.text = "Queue (FIFO): Blocks are picked in the order they were placed.";
                 break;
         }
 
