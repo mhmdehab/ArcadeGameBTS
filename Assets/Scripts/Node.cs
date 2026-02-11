@@ -83,7 +83,7 @@ public class Node : MonoBehaviour
     {
         isFilled = true;
         nodeValue = number;
-        nodeMaterial.color = Color.yellow;
+        nodeMaterial.color = Color.black;
 
         Debug.Log("Filling node with number: " + number + ", nodeText is null? " + (nodeText == null));
 
