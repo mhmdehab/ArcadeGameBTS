@@ -6,7 +6,6 @@ public class Tower : MonoBehaviour
     [Header("Configuration")]
     public Transform snapStartPoint;
     public float verticalSpacing = 0.2f;
-    // Default to 100 so Helper Towers or unconfigured towers aren't broken
     public int maxCapacity = 100;
 
     public Vector3 customBlockRotation = new Vector3(0, 180, 0);
@@ -32,7 +31,6 @@ public class Tower : MonoBehaviour
 
     public void AddBlock(DraggableBlock block)
     {
-        // Optional safety check
         if (!HasSpace()) return;
 
         blocks.Add(block);

@@ -44,6 +44,16 @@ public class GameManager : MonoBehaviour
     public GameObject setupMenu;
     public GameObject winPanel;
     public List<TMP_Text> targetTextSlots;
+    public GameObject helperPromptPanel;
+    public TMP_Text messageText;
+
+    [Header("Timer Settings")]
+    public TMP_Text timerText;
+    private bool isTimerRunning = false;
+    private float elapsedTime = 0f;
+
+    private Coroutine helperHintCoroutine;
+    private Coroutine messageCoroutine; 
 
     void Awake()
     {
@@ -55,9 +65,24 @@ public class GameManager : MonoBehaviour
         ShowDifficultyMenu();
     }
 
-    // ---------------------------------------------------------
-    // 1. MENU & SELECTION LOGIC (Fixed for MainMenuController)
-    // ---------------------------------------------------------
+    void Update()
+    {
+        if (isTimerRunning)
+        {
+            elapsedTime += Time.deltaTime;
+            UpdateTimerUI();
+        }
+    }
+
+    void UpdateTimerUI()
+    {
+        if (timerText != null)
+        {
+            int minutes = Mathf.FloorToInt(elapsedTime / 60F);
+            int seconds = Mathf.FloorToInt(elapsedTime % 60F);
+            timerText.text = string.Format("Time: {0:00}:{1:00}", minutes, seconds);
+        }
+    }
 
     public void ShowDifficultyMenu()
     {
@@ -70,68 +95,52 @@ public class GameManager : MonoBehaviour
         if (helperTower != null) helperTower.SetActive(false);
         if (startGameButtonText != null) startGameButtonText.text = "START GAME";
 
+        isTimerRunning = false; 
+        if (timerText != null) timerText.text = "";
+
         setupMenu.SetActive(true);
     }
 
-    // --- FIX #1: Accept ResourceType directly ---
     public void SetResourceMode(ResourceType type)
     {
         selectedResourceMode = type;
         Debug.Log("Mode Selected: " + selectedResourceMode);
     }
 
-    // --- FIX #2: Start the game when Difficulty is selected via Start Button ---
     public void SelectDifficulty(int numberOfWords)
     {
         selectedDifficulty = numberOfWords;
         Debug.Log("Difficulty Selected: " + selectedDifficulty);
 
-        // Since MainMenuController calls this when "Start" is clicked, 
-        // we trigger the start routine now.
         StartCoroutine(StartGameRoutine());
     }
 
-    // ---------------------------------------------------------
-    // 2. LOADING & API LOGIC
-    // ---------------------------------------------------------
 
     private IEnumerator StartGameRoutine()
     {
-        // A. Show Loading UI
         if (startGameButtonText != null) startGameButtonText.text = "GENERATING...";
 
-        // B. Determine API Requirements
-        // Difficulty 1: Min 4 letters. Difficulty 2/3: Min 3 letters.
         int minLen = (selectedDifficulty == 1) ? 4 : 3;
         int neededCount = (selectedDifficulty == 1) ? 1 : (selectedDifficulty == 2 ? 2 : 3);
 
-        // Ask for a few extra words just in case
         if (useOnlineWords && apiService != null)
         {
-            // Wait for API response...
             yield return apiService.FetchWords(neededCount + 3, minLen, 6,
                 (words) => {
-                    // Success! Use these words.
                     availableWords.Clear();
                     availableWords.AddRange(words);
                 },
                 () => {
-                    // Fail! Log it and continue to fallback.
                     Debug.Log("API Failed. Using local library.");
                 }
             );
         }
 
-        // C. Start the Level
         if (startGameButtonText != null) startGameButtonText.text = "START GAME";
         setupMenu.SetActive(false);
 
         StartLevelLogic(selectedDifficulty);
     }
-
-    // ---------------------------------------------------------
-    // 3. LEVEL SETUP LOGIC
-    // ---------------------------------------------------------
 
     private void StartLevelLogic(int difficulty)
     {
@@ -139,28 +148,26 @@ public class GameManager : MonoBehaviour
         activeTowerIndices.Clear();
         CleanupLevel();
 
-        // 1. Configure Tray
         if (resourceTray != null) resourceTray.ConfigureMode(selectedResourceMode);
 
-        // 2. Configure Helper Tower
         if (helperTower != null)
         {
-            bool showHelper = (selectedResourceMode == ResourceType.Stack || selectedResourceMode == ResourceType.Queue);
-            helperTower.SetActive(showHelper);
+            helperTower.SetActive(false);
 
-            if (showHelper)
+            if (difficulty == 1 && selectedResourceMode == ResourceType.Stack)
             {
-                Tower helperScript = helperTower.GetComponent<Tower>();
-                if (helperScript != null) helperScript.maxCapacity = 5;
+                helperHintCoroutine = StartCoroutine(ShowHelperWithDelay());
+            }
+            else
+            {
+                helperTower.SetActive(false);
             }
         }
 
-        // 3. Determine Goal Towers
         if (difficulty == 1) activeTowerIndices.Add(1);
         else if (difficulty == 2) { activeTowerIndices.Add(0); activeTowerIndices.Add(2); }
         else if (difficulty == 3) { activeTowerIndices.Add(0); activeTowerIndices.Add(1); activeTowerIndices.Add(2); }
 
-        // 4. Spawn Words
         foreach (int index in activeTowerIndices)
         {
             goalTowerSlots[index].gameObject.SetActive(true);
@@ -175,6 +182,20 @@ public class GameManager : MonoBehaviour
             goalTowerSlots[index].maxCapacity = newWord.Length + 1;
 
             SpawnBlocks(newWord);
+        }
+
+        elapsedTime = 0f;
+        isTimerRunning = true;
+    }
+
+    private IEnumerator ShowHelperWithDelay()
+    {
+        yield return new WaitForSeconds(20f);
+
+        if (helperPromptPanel != null)
+        {
+            helperPromptPanel.SetActive(true);
+            isTimerRunning = false;
         }
     }
 
@@ -192,12 +213,14 @@ public class GameManager : MonoBehaviour
         return selectedWord;
     }
 
-    // ---------------------------------------------------------
-    // 4. GAMEPLAY LOGIC
-    // ---------------------------------------------------------
-
     void CleanupLevel()
     {
+        if (messageCoroutine != null) StopCoroutine(messageCoroutine);
+        if (messageText != null) messageText.text = "";
+
+        if (helperPromptPanel != null) helperPromptPanel.SetActive(false);
+        if (helperHintCoroutine != null) StopCoroutine(helperHintCoroutine);
+
         foreach (GameObject b in activeBlocks) if (b != null) Destroy(b);
         activeBlocks.Clear();
 
@@ -287,18 +310,88 @@ public class GameManager : MonoBehaviour
         if (solvedCount == activeTargetWords.Count)
         {
             winPanel.SetActive(true);
+            isTimerRunning = false;
         }
     }
 
     public void RestartGame()
     {
         winPanel.SetActive(false);
-        // Reuse the start logic with current settings
         StartCoroutine(StartGameRoutine());
     }
 
     public void BackToMenu()
     {
         ShowDifficultyMenu();
+    }
+
+    public void UnlockHelper()
+    {
+        if (helperPromptPanel != null) helperPromptPanel.SetActive(false);
+
+        isTimerRunning = true;
+
+        if (helperTower != null)
+        {
+            helperTower.SetActive(true);
+
+            Tower t = helperTower.GetComponent<Tower>();
+            if (t != null) t.maxCapacity = 5;
+        }
+
+        ShowMessage("Helper Stack Added! Try moving blocks there.", 3f, Color.green);
+    }
+
+    public void ShowMessage(string msg, float duration = 3f, Color? textColor = null)
+    {
+        if (messageText == null) return;
+
+        messageText.text = msg;
+        messageText.color = textColor ?? Color.white;
+
+        if (messageCoroutine != null) StopCoroutine(messageCoroutine);
+
+        messageCoroutine = StartCoroutine(FadeMessageRoutine(duration));
+    }
+
+    private IEnumerator FadeMessageRoutine(float totalDuration)
+    {
+        float fadeSpeed = 0.5f; 
+        float waitTime = totalDuration - (fadeSpeed * 2);
+
+        // 1. Setup: Start Invisible
+        Color c = messageText.color;
+        c.a = 0f;
+        messageText.color = c;
+
+        // 2. Fade In
+        float timer = 0f;
+        while (timer < fadeSpeed)
+        {
+            timer += Time.deltaTime;
+            c.a = Mathf.Lerp(0f, 1f, timer / fadeSpeed);
+            messageText.color = c;
+            yield return null;
+        }
+        c.a = 1f; // Ensure fully visible
+        messageText.color = c;
+
+        // 3. Wait
+        yield return new WaitForSeconds(waitTime > 0 ? waitTime : 0.1f);
+
+        // 4. Fade Out
+        timer = 0f;
+        while (timer < fadeSpeed)
+        {
+            timer += Time.deltaTime;
+            c.a = Mathf.Lerp(1f, 0f, timer / fadeSpeed);
+            messageText.color = c;
+            yield return null;
+        }
+
+        // 5. Clean up
+        messageText.text = "";
+        c.a = 1f; // Reset alpha for next time
+        messageText.color = c;
     }
 }

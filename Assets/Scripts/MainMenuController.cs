@@ -2,13 +2,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// This Enum lets us pick between the 3 modes
 public enum ResourceType { None, Array, Stack, Queue }
 
 public class MainMenuController : MonoBehaviour
 {
     [Header("Word Count Section")]
-    public Button[] wordCountButtons; // We will drag Btn_1, Btn_2, Btn_3 here
+    public Button[] wordCountButtons;
     public TMP_Text wordCountDescription;
 
     [Header("Resource Type Section")]
@@ -20,30 +19,25 @@ public class MainMenuController : MonoBehaviour
     [Header("Start Control")]
     public Button startButton;
 
-    // Internal Variables
     private int selectedWordCount = 0;
     private ResourceType selectedType = ResourceType.None;
 
-    // Colors
     private Color colorSelected = Color.green;
     private Color colorDefault = Color.white;
 
     void Start()
     {
-        // 1. Setup Word Count Buttons (1, 2, 3)
-        // Note: The index 'i' is 0, 1, 2... so we add +1 to get the actual count
+
         for (int i = 0; i < wordCountButtons.Length; i++)
         {
             int count = i + 1;
             wordCountButtons[i].onClick.AddListener(() => SelectWordCount(count));
         }
 
-        // 2. Setup Resource Buttons
         btnArray.onClick.AddListener(() => SelectResourceType(ResourceType.Array));
         btnStack.onClick.AddListener(() => SelectResourceType(ResourceType.Stack));
         btnQueue.onClick.AddListener(() => SelectResourceType(ResourceType.Queue));
 
-        // 3. Setup Start Button
         startButton.onClick.AddListener(OnStartClicked);
 
         ResetUI();
@@ -57,7 +51,7 @@ public class MainMenuController : MonoBehaviour
         wordCountDescription.text = "Select difficulty level...";
         resourceDescription.text = "Select a data structure...";
 
-        startButton.interactable = false; // Disable start button
+        startButton.interactable = false;
         UpdateButtonVisuals();
     }
 
@@ -96,13 +90,11 @@ public class MainMenuController : MonoBehaviour
 
     void UpdateButtonVisuals()
     {
-        // Reset all buttons to White first
         foreach (var btn in wordCountButtons) btn.GetComponent<Image>().color = colorDefault;
         btnArray.GetComponent<Image>().color = colorDefault;
         btnStack.GetComponent<Image>().color = colorDefault;
         btnQueue.GetComponent<Image>().color = colorDefault;
 
-        // Color the selected ones Green
         if (selectedWordCount > 0)
         {
             wordCountButtons[selectedWordCount - 1].GetComponent<Image>().color = colorSelected;
@@ -115,7 +107,6 @@ public class MainMenuController : MonoBehaviour
 
     void CheckReadyToStart()
     {
-        // Only unlock if BOTH choices are made
         if (selectedWordCount > 0 && selectedType != ResourceType.None)
         {
             startButton.interactable = true;
@@ -124,7 +115,6 @@ public class MainMenuController : MonoBehaviour
 
     void OnStartClicked()
     {
-        // This connects to the GameManager to actually start the game
         GameManager.Instance.SetResourceMode(selectedType);
         GameManager.Instance.SelectDifficulty(selectedWordCount);
     }

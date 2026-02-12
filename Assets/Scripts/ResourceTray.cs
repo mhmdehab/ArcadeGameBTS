@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq; // NEED THIS for RemoveAll
+using System.Linq;
 
 public class ResourceTray : MonoBehaviour
 {
@@ -25,7 +25,6 @@ public class ResourceTray : MonoBehaviour
 
         if (currentMode == ResourceType.Array)
         {
-            // Fill with nulls if needed
             while (trayBlocks.Count < arrayCapacity)
             {
                 trayBlocks.Add(null);
@@ -33,8 +32,6 @@ public class ResourceTray : MonoBehaviour
         }
         else
         {
-            // --- FIX 1: CLEANUP ---
-            // If switching to Stack/Queue, DELETE all empty ghost slots immediately
             trayBlocks.RemoveAll(b => b == null);
             RearrangeBlocks();
         }
@@ -43,7 +40,6 @@ public class ResourceTray : MonoBehaviour
     public Vector3 GetNextPosition(int index)
     {
         if (spawnStartPoint == null) return transform.position;
-        // Tip: Rotate your 'StartPoint' object in Unity to change this direction!
         Vector3 direction = spawnStartPoint.right;
         Vector3 offset = direction * (index * blockSpacing);
         return spawnStartPoint.position + offset;
@@ -60,18 +56,14 @@ public class ResourceTray : MonoBehaviour
 
     public void AddBlock(DraggableBlock block)
     {
-        // 1. Array Logic
         if (currentMode == ResourceType.Array)
         {
             int emptySlot = trayBlocks.IndexOf(null);
             if (emptySlot != -1) trayBlocks[emptySlot] = block;
             else return;
         }
-        // 2. Stack/Queue Logic
         else
         {
-            // --- FIX 2: NO GHOSTS ---
-            // Ensure we don't have nulls before adding
             trayBlocks.RemoveAll(b => b == null);
             trayBlocks.Add(block);
         }
@@ -88,11 +80,11 @@ public class ResourceTray : MonoBehaviour
         {
             if (currentMode == ResourceType.Array)
             {
-                trayBlocks[index] = null; // Leave hole
+                trayBlocks[index] = null;
             }
             else
             {
-                trayBlocks.Remove(block); // Collapse hole
+                trayBlocks.Remove(block);
                 RearrangeBlocks();
             }
         }
@@ -134,7 +126,6 @@ public class ResourceTray : MonoBehaviour
         }
         else
         {
-            // --- FIX 3: SIMPLE ADD ---
             if (!trayBlocks.Contains(block)) trayBlocks.Add(block);
         }
 
@@ -154,8 +145,6 @@ public class ResourceTray : MonoBehaviour
 
     public void RearrangeBlocks()
     {
-        // --- SAFETY CHECK ---
-        // If we are in Stack/Queue, remove any nulls that snuck in
         if (currentMode != ResourceType.Array)
         {
             trayBlocks.RemoveAll(b => b == null);
@@ -176,26 +165,40 @@ public class ResourceTray : MonoBehaviour
         foreach (var b in trayBlocks) if (b != null) Destroy(b.gameObject);
         trayBlocks.Clear();
 
-        // Only refill nulls if we are staying in Array mode
         if (currentMode == ResourceType.Array) ConfigureMode(ResourceType.Array);
     }
 
     public bool CanPickUp(DraggableBlock block)
     {
         int index = trayBlocks.IndexOf(block);
+
         if (index == -1) return true;
 
         switch (currentMode)
         {
-            case ResourceType.Array: return true;
+            case ResourceType.Array:
+                return true;
 
-            // Queue: Pick the HEAD (First item, Left side)
-            case ResourceType.Queue: return index == 0;
+            case ResourceType.Queue:
+                if (index == 0) return true;
 
-            // Stack: Pick the TOP (Last item, Right side)
-            case ResourceType.Stack: return index == trayBlocks.Count - 1;
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ShowMessage("In a Queue, you can only move (DEQUEUE) the first (leftmost) block!", 3f, Color.red);
+                }
+                return false;
 
-            default: return true;
+            case ResourceType.Stack:
+                if (index == trayBlocks.Count - 1) return true;
+
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ShowMessage("In a Stack, you can only move (POP) the top (rightmost) block!", 3f, Color.red);
+                }
+                return false;
+
+            default:
+                return true;
         }
     }
 
