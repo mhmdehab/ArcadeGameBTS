@@ -10116,7 +10116,7 @@ PrefabInstance:
       objectReference: {fileID: 818973048}
     - target: {fileID: 6501069553666488317, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: startingTime
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 6501069553666488317, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: gameOverPanel
@@ -10124,7 +10124,7 @@ PrefabInstance:
       objectReference: {fileID: 1291557685}
     - target: {fileID: 6501069553666488317, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: globalTimeLeft
-      value: 30
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 6501069553666488317, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: difficultyPanel
@@ -10248,7 +10248,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8584286813586788509, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8717268171038156188, guid: b5130cde7c5fc414daac2ed744e8cab5, type: 3}
       propertyPath: blockHeight
@@ -10392,7 +10392,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Enter text...
+  m_text: 
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
