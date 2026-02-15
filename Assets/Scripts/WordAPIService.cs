@@ -75,7 +75,7 @@ public class WordAPIService : MonoBehaviour
                         onFailure?.Invoke();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     onFailure?.Invoke();
                 }

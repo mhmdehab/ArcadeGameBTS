@@ -46,11 +46,18 @@ public class GameManager : MonoBehaviour
     public List<TMP_Text> targetTextSlots;
     public GameObject helperPromptPanel;
     public TMP_Text messageText;
+    public GameObject gameOverPanel;
+    public TMP_Text gameOverText;
 
     [Header("Timer Settings")]
     public TMP_Text timerText;
     private bool isTimerRunning = false;
-    private float elapsedTime = 0f;
+    public float startingTime = 120f;
+    public float globalTimeLeft = 120f;
+
+    [Header("Score Settings")]
+    public TMP_Text scoreText;
+    private int currentScore = 0;
 
     private Coroutine helperHintCoroutine;
     private Coroutine messageCoroutine; 
@@ -69,7 +76,14 @@ public class GameManager : MonoBehaviour
     {
         if (isTimerRunning)
         {
-            elapsedTime += Time.deltaTime;
+            globalTimeLeft -= Time.deltaTime;
+
+            if (globalTimeLeft <= 0f)
+            {
+                globalTimeLeft = 0f;
+                GameOver();
+            }
+
             UpdateTimerUI();
         }
     }
@@ -78,14 +92,31 @@ public class GameManager : MonoBehaviour
     {
         if (timerText != null)
         {
-            int minutes = Mathf.FloorToInt(elapsedTime / 60F);
-            int seconds = Mathf.FloorToInt(elapsedTime % 60F);
+            int minutes = Mathf.FloorToInt(globalTimeLeft / 60F);
+            int seconds = Mathf.FloorToInt(globalTimeLeft % 60F);
+
+            if (globalTimeLeft <= 15f) timerText.color = Color.red;
+            else timerText.color = Color.white;
+
             timerText.text = string.Format("Time: {0:00}:{1:00}", minutes, seconds);
         }
     }
 
+    void UpdateScoreUI()
+    {
+        if (scoreText != null) scoreText.text = "Score: " + currentScore;
+    }
+
+    public void ResetScore()
+    {
+        currentScore = 0;
+        UpdateScoreUI();
+    }
+
     public void ShowDifficultyMenu()
     {
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+
         winPanel.SetActive(false);
         CleanupLevel();
 
@@ -96,9 +127,11 @@ public class GameManager : MonoBehaviour
         if (startGameButtonText != null) startGameButtonText.text = "START GAME";
 
         isTimerRunning = false; 
-        if (timerText != null) timerText.text = "";
 
         setupMenu.SetActive(true);
+
+        UpdateTimerUI();
+
     }
 
     public void SetResourceMode(ResourceType type)
@@ -153,7 +186,6 @@ public class GameManager : MonoBehaviour
         if (helperTower != null)
         {
             helperTower.SetActive(false);
-
             if (difficulty == 1 && selectedResourceMode == ResourceType.Stack)
             {
                 helperHintCoroutine = StartCoroutine(ShowHelperWithDelay());
@@ -168,6 +200,8 @@ public class GameManager : MonoBehaviour
         else if (difficulty == 2) { activeTowerIndices.Add(0); activeTowerIndices.Add(2); }
         else if (difficulty == 3) { activeTowerIndices.Add(0); activeTowerIndices.Add(1); activeTowerIndices.Add(2); }
 
+        string combinedLetters = "";
+
         foreach (int index in activeTowerIndices)
         {
             goalTowerSlots[index].gameObject.SetActive(true);
@@ -181,16 +215,17 @@ public class GameManager : MonoBehaviour
 
             goalTowerSlots[index].maxCapacity = newWord.Length + 1;
 
-            SpawnBlocks(newWord);
+            combinedLetters += newWord;
         }
 
-        elapsedTime = 0f;
+        SpawnBlocks(combinedLetters);
+
         isTimerRunning = true;
     }
 
     private IEnumerator ShowHelperWithDelay()
     {
-        yield return new WaitForSeconds(20f);
+        yield return new WaitForSeconds(10f);
 
         if (helperPromptPanel != null)
         {
@@ -309,8 +344,13 @@ public class GameManager : MonoBehaviour
 
         if (solvedCount == activeTargetWords.Count)
         {
-            winPanel.SetActive(true);
-            isTimerRunning = false;
+            if (!winPanel.activeSelf)
+            {
+                winPanel.SetActive(true);
+                isTimerRunning = false;
+
+                CalculateScore();
+            }
         }
     }
 
@@ -359,12 +399,10 @@ public class GameManager : MonoBehaviour
         float fadeSpeed = 0.5f; 
         float waitTime = totalDuration - (fadeSpeed * 2);
 
-        // 1. Setup: Start Invisible
         Color c = messageText.color;
         c.a = 0f;
         messageText.color = c;
 
-        // 2. Fade In
         float timer = 0f;
         while (timer < fadeSpeed)
         {
@@ -373,13 +411,11 @@ public class GameManager : MonoBehaviour
             messageText.color = c;
             yield return null;
         }
-        c.a = 1f; // Ensure fully visible
+        c.a = 1f;
         messageText.color = c;
 
-        // 3. Wait
         yield return new WaitForSeconds(waitTime > 0 ? waitTime : 0.1f);
 
-        // 4. Fade Out
         timer = 0f;
         while (timer < fadeSpeed)
         {
@@ -389,9 +425,74 @@ public class GameManager : MonoBehaviour
             yield return null;
         }
 
-        // 5. Clean up
         messageText.text = "";
-        c.a = 1f; // Reset alpha for next time
+        c.a = 1f;
         messageText.color = c;
     }
+
+    private void CalculateScore()
+    {
+        int[,] timeRewards = new int[,]
+        {
+            { 5,  25, 15 },
+            { 10,  40,  60 },
+            { 15,  60,  90 }
+        };
+
+        int rowIndex = selectedDifficulty - 1;
+        int colIndex = (int)selectedResourceMode - 1;
+
+        int secondsEarned = timeRewards[rowIndex, colIndex];
+
+        globalTimeLeft += secondsEarned;
+        UpdateTimerUI();
+
+        int baseScore = selectedDifficulty * 5;
+        int multiplier = 1;
+        if (selectedResourceMode == ResourceType.Stack) multiplier = 2;
+        else if (selectedResourceMode == ResourceType.Queue) multiplier = 3;
+
+        int finalEarned = baseScore * multiplier;
+        currentScore += finalEarned;
+        UpdateScoreUI();
+
+        ShowMessage($"Level Cleared!\nScore: +{finalEarned} | Time Extended: +{secondsEarned}s", 6f, Color.green);
+    }
+
+    private void GameOver()
+    {
+        isTimerRunning = false;
+        CleanupLevel();
+
+        setupMenu.SetActive(false);
+        winPanel.SetActive(false);
+        if (helperPromptPanel != null) helperPromptPanel.SetActive(false);
+
+        foreach (var t in goalTowerSlots) t.gameObject.SetActive(false);
+        foreach (var txt in targetTextSlots) txt.gameObject.SetActive(false);
+        if (helperTower != null) helperTower.SetActive(false);
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+            if (gameOverText != null)
+            {
+                gameOverText.text = $"\n<b>Final Score: {currentScore}</b>\nPress 'R' to Try Again\n Press 'X' To Exit";
+            }
+        }
+    }
+
+    public void ResetRun()
+    {
+        currentScore = 0;
+        globalTimeLeft = startingTime;
+        UpdateScoreUI();
+        UpdateTimerUI();
+
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+
+        ShowDifficultyMenu();
+
+    }
+
 }

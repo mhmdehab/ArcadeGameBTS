@@ -26,9 +26,20 @@ public class MiniGameTrigger : MonoBehaviour
             StartMiniGame();
         }
 
-        if (isGameActive && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (isGameActive)
         {
-            EndMiniGame();
+            if (Keyboard.current.escapeKey.wasPressedThisFrame || Keyboard.current.xKey.wasPressedThisFrame)
+            {
+                EndMiniGame();
+            }
+
+            if (Keyboard.current.rKey.wasPressedThisFrame)
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ResetRun();
+                }
+            }
         }
     }
 
@@ -56,6 +67,11 @@ public class MiniGameTrigger : MonoBehaviour
 
     void EndMiniGame()
     {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.ResetScore();
+        }
+
         isGameActive = false;
 
         miniGameRoot.SetActive(false);
@@ -79,7 +95,6 @@ public class MiniGameTrigger : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerInZone = true;
-            Debug.Log("Press E to Start Stacking!");
         }
     }
 
