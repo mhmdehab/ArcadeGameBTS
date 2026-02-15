@@ -7,6 +7,10 @@ MonoImporter:
   - Tree1: {fileID: 8367183145648123869, guid: 467acf164dcd10647a090b536416d3a5, type: 3}
   - Tree2: {fileID: 6074399526181488100, guid: b5385bf85c296e2448fb97fa79cf6dcd, type: 3}
   - Tree3: {fileID: 5253428860262493897, guid: d77ad02ae1bcf0745b2a563c0f1ec4e6, type: 3}
+  - nodePrefab: {fileID: 2773574089454363554, guid: fe6bcb323391d234bab7c0bf9170d2bc, type: 3}
+  - treeSpawnPoint: {instanceID: 0}
+  - numberedBallPrefab: {instanceID: 0}
+  - basketPosition: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
