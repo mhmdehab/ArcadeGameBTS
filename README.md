@@ -17,5 +17,10 @@ This a project that contains 2 data structure based games binary tree and a stac
     ![im8](Photos/im8.png "im8")
     ![im9](Photos/im9.png "im9")
 
+- Binary Tree Game:
+    - First approach the pillar and press 'E'.
+
+      ![im2](Photos/im2.png "im2")
+
    
    
