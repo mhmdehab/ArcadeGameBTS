@@ -1,2 +1,1 @@
-
-#Data structure based arcade games
+# Data structure based arcade games
