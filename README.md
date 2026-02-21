@@ -28,10 +28,15 @@ This a project that contains 2 data structure based games binary tree and a stac
 
       ![im5](Photos/im5.png "im5")
       ![im6](Photos/im6.png "im6")
-
+  
   # Shortcomings:
     -  Picking up the generated balls can some times be laggy and make the ball clip.
     -  When pressing 'E' on the pillar some times the text box stops working.
+    -  Very basic UI design needs a lot of work.
+    -  Some colors are hard to see.
+    -  The values for the time regain may be too underwhelming for some levels and way too generous for other levels.
 
+  # Video Tutorial:
+    - https://drive.google.com/drive/folders/1ie3xE25zLXFyvUvUvm7ou01FzdyGQRhz?usp=sharing
    
    
