@@ -13,7 +13,7 @@ This a project that contains 2 data structure based games binary tree and a stac
     ![im7](Photos/im7.png "im7")
 
 
-   - After selecting your desired mode the game loads the letters of each word randomly on a block and there is stacks to order the words on in addition to a timer of 2 mins; once you have completed ordering all words you         gain point based on which data structure you picked and the number of words and also you gain a few seconds to to help getting a higher score; the player uses lmb to pick each block of a certain letter and place it on        its corresponding stack; the player should drag the letters according to the rules of each data structure.
+   - After selecting your desired mode the game loads the letters of each word randomly on a block and there is stacks to order the words on, in addition to a timer of 2 mins; once you have completed ordering all words you         gain point based on which data structure you picked and the number of words and also you gain a few seconds to to help getting a higher score; the player uses lmb to pick each block of a certain letter and place it on        its corresponding stack; the player should drag the letters according to the rules of each data structure.
      
     ![im8](Photos/im8.png "im8")
     ![im9](Photos/im9.png "im9")
