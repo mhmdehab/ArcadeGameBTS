@@ -10,5 +10,8 @@ This a project that contains 2 data structure based games binary tree and a stac
     ![im10](Photos/im10.png "im10")
     ![im1](Photos/im1.png "im1")
     ![im7](Photos/im7.png "im7")
+   - After selecting your desired mode the game loads the letters of each word randomly on a block and there is stacks to order the words on.
+    ![im8](Photos/im8.png "im8")
+    ![im9](Photos/im9.png "im9")
 
    
