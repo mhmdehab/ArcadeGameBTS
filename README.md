@@ -7,4 +7,4 @@ This a project that contains 2 data structure based games binary tree and a stac
 # Features:
 - Stack Game:
    - When interacting at the table by pressing 'E' a main menu appears which displayes 3 options for words (1, 2, 3) with 3 Data structures available: Stack, Queue, Array.
-  ![im1](Photos\im1.png "Stack Game")
+  ![im1](Photos/im1.png "im1")
