@@ -14,13 +14,20 @@ public class MiniGameTrigger : MonoBehaviour
     public StarterAssetsInputs inputScript;
     public PlayerInput playerInputComponent;
     public GameObject playerCameraRoot;
-    public GameObject playerMesh;      
+    public GameObject playerMesh;
+    public GameObject ePressPrompt;
 
     private bool isPlayerInZone = false;
     private bool isGameActive = false;
 
+    private void Start()
+    {
+        ePressPrompt.SetActive(false);
+    }
+
     void Update()
     {
+        ePressPrompt.SetActive(isPlayerInZone && !isGameActive);
         if (isPlayerInZone && !isGameActive && Keyboard.current.eKey.wasPressedThisFrame)
         {
             StartMiniGame();

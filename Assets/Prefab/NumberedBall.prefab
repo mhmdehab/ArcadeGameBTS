@@ -127,6 +127,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   throwForce: 600
   maxDistance: 3
+  followSpeed: 15
 --- !u!54 &1085646474889610283
 Rigidbody:
   m_ObjectHideFlags: 0

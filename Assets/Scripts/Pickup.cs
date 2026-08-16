@@ -8,6 +8,7 @@ public class Pickup : MonoBehaviour
     float throwForce = 600f;
     [SerializeField]
     float maxDistance = 3f;
+    [SerializeField] float followSpeed = 15f;
     float distance;
 
     TempParent tempParent;
@@ -30,38 +31,39 @@ public class Pickup : MonoBehaviour
     }
     private void OnMouseDown()
     {
-        if (tempParent != null)
+        if (tempParent == null) return;
+        distance = Vector3.Distance(transform.position, tempParent.transform.position);
+        if (distance <= maxDistance)
         {
-            distance = Vector3.Distance(this.transform.position, tempParent.transform.position);
-            if (distance<=maxDistance)
-            {
-                isHolding = true;
-                rb.useGravity = false;
-                rb.detectCollisions = true;
-
-                this.transform.SetParent(tempParent.transform);
-            } }
+            isHolding = true;
+            rb.useGravity = false;
+            rb.detectCollisions = true;
+            Ball ball = GetComponent<Ball>();
+            if (ball != null && BallHud.Instance != null)
+                BallHud.Instance.ShowNumber(ball.ballNumber);
+        }
     }
     private void OnMouseUp()
     {
         Drop();
     }
-    private void OnMouseExit()
-    {
-        Drop();
-    }
+
     private void Hold()
     {
-        distance = Vector3.Distance(this.transform.position, tempParent.transform.position);
-        if (distance>=maxDistance)
-        {
-            Drop();
-        }
-        rb.linearVelocity = Vector3.zero;
+        Vector3 target = tempParent.transform.position;
+        rb.linearVelocity = (target - transform.position) * followSpeed;
         rb.angularVelocity = Vector3.zero;
 
+        distance = Vector3.Distance(transform.position, target);
+        if (distance >= maxDistance)
+        {
+            Drop();
+            return;
+        }
+
         if (Input.GetMouseButtonDown(1))
-        { 
+        {
+            rb.linearVelocity = Vector3.zero;
             rb.AddForce(tempParent.transform.forward * throwForce);
             Drop();
         }
@@ -71,10 +73,11 @@ public class Pickup : MonoBehaviour
         if (isHolding)
         {
             isHolding = false;
-            objectPos = this.transform.position;
-            this.transform.position = objectPos;
-            this.transform.SetParent(null);
+            transform.SetParent(null);
             rb.useGravity=true;
+            
+            if (BallHud.Instance != null)
+                BallHud.Instance.HideNumber();
         }
     }
 }

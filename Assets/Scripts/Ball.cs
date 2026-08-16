@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using TMPro;
 public class Ball : MonoBehaviour
 {
     public int ballNumber;
@@ -18,5 +18,12 @@ public class Ball : MonoBehaviour
             numberText = GetComponentInChildren<TextMesh>();
         }
         numberText.text = number.ToString();
+    }
+    public void HideNumber()
+    {
+        if (numberText != null)
+        {
+            numberText.text = "";
+        }
     }
 }
